@@ -1,0 +1,27 @@
+ORBIT - fresh start, one upload, nothing to rename or move.
+
+1. On GitHub, create a NEW repository named exactly:  Orbit
+   Make it Public. Leave "Add a README", gitignore and license
+   all UNCHECKED, then Create repository.
+
+2. Unzip Orbit-project.zip, open the Orbit folder, select
+   EVERYTHING inside it (Ctrl+A) and drag it all into the
+   repo's "uploading an existing file" page. Commit changes.
+   Everything belongs at the top level of the repo - the
+   workflow, gradlew, settings.gradle and the app folder side
+   by side. Do not upload the Orbit folder itself.
+
+3. Open the Actions tab. The build runs by itself (about
+   2-4 minutes). When it is green, open the run, download the
+   "app-debug" artifact, unzip it, and install app-debug.apk
+   on the phone. Play Protect may ask: choose "Scan app" or
+   "Install without scanning" - either finishes the install.
+
+Notes:
+- Orbit is a brand-new app (com.orbit.hub). It installs next
+  to Argus, nothing to uninstall first.
+- Your Bomba Live wall code was saved inside the old app, so
+  Orbit starts with a fresh code. To keep the same wall, type
+  your old code (7ZKG-A5P5) in the Bomba Live page's wall code
+  box.
+- The computers keep using the Bomba Control Agent as before.

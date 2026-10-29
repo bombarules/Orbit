@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bomba Live</title>
+<style>
+:root{
+  --stage:#140f16; --card:#1e161c; --ink:#efe3d6; --dim:#b7a59a; --edge:rgba(232,196,160,.25); --accent:#e8c4a0; --live:#9cc5a4; --off:#7a6670;
+  color-scheme:dark; box-sizing:border-box;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --stage:#140f16; } }
+:root[data-theme="dark"]{ --stage:#140f16; }
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;min-height:100%;background:var(--stage);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding:calc(env(safe-area-inset-top,0px) + 12px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+h1{font:600 20px Georgia,"Times New Roman",serif;margin:0;color:#f1d9bf;flex:1;min-width:120px}
+.chip{background:rgba(232,196,160,.1);border:1px solid var(--edge);border-radius:999px;padding:7px 12px;font-size:13px;letter-spacing:.06em}
+.tabs{display:flex;background:var(--card);border:1px solid var(--edge);border-radius:999px;padding:3px}
+.tabs button{border:0;background:none;border-radius:999px;padding:7px 16px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#2a1f27;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px}
+.tile{position:relative;background:#0b080c;border:1px solid var(--edge);border-radius:14px;overflow:hidden;aspect-ratio:16/10;padding:0;text-align:left}
+.tile video{width:100%;height:100%;object-fit:contain;display:block;background:#0b080c}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:7px 10px;background:linear-gradient(transparent,rgba(10,7,11,.85));font-size:13px}
+.tile .dot{width:9px;height:9px;border-radius:50%;background:var(--off);flex:none}
+.tile.live .dot{background:var(--live);box-shadow:0 0 8px var(--live)}
+.tile .st{margin-left:auto;color:var(--dim);font-size:12px}
+.tile .empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-size:13px;text-align:center;padding:20px}
+.tile.live .empty{display:none}
+.tile:fullscreen{border-radius:0;border:0;aspect-ratio:auto;width:100vw;height:100vh;background:#000}
+.tile:fullscreen video{object-fit:contain;width:100%;height:100%}
+.tile:fullscreen.fit video{object-fit:cover}
+.tile:fullscreen .cap{opacity:0;transition:opacity .3s}
+.tile:fullscreen.bar .cap{opacity:1}
+.tile .fsx{display:none;position:absolute;top:14px;right:14px;width:44px;height:44px;border-radius:50%;border:1px solid var(--edge);background:rgba(10,7,11,.6);color:var(--ink);font-size:18px;align-items:center;justify-content:center}
+.tile:fullscreen.bar .fsx{display:flex}
+.tile .ctl{display:none;position:absolute;top:14px;right:68px;width:44px;height:44px;border-radius:50%;border:1px solid var(--edge);background:rgba(10,7,11,.6);color:var(--ink);font-size:18px;align-items:center;justify-content:center}
+.tile:fullscreen.bar .ctl{display:flex}
+.tile.ctlOn .ctl{background:var(--live);color:#12241a}
+.tile.ctlOn{outline:2px solid var(--live);outline-offset:-2px}
+.tile.ctlOn video{touch-action:none}
+#ctlBar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);border-top:1px solid var(--edge);padding:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#ctlBar[hidden]{display:none}
+#ctlBar input{flex:1;min-width:130px}
+#ctlBar .st{color:var(--dim);font-size:12px;flex-basis:100%}
+/* live wall: live screens share the whole window, waiting ones shrink to a line */
+.grid.wall{grid-template-columns:repeat(var(--cols),1fr)}
+.grid.wall .tile{aspect-ratio:auto;height:calc((100vh - 130px - env(safe-area-inset-top,0px)) / var(--rows) - 10px)}
+.grid.wall .tile:not(.live){display:none}
+.waiting{color:var(--dim);font-size:13px;margin-top:10px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.btn{background:rgba(232,196,160,.08);border:1px solid var(--edge);border-radius:12px;padding:10px 14px}
+.btn.main{background:var(--accent);color:#2a1f27;border-color:var(--accent);font-weight:600}
+.btn.stop{background:#c46b6b;border-color:#c46b6b;color:#fff;font-weight:600}
+.panel{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:16px;max-width:560px}
+.panel h2{font:600 17px Georgia,serif;margin:0 0 8px;color:#f1d9bf}
+.panel p{color:var(--dim);margin:6px 0 12px;font-size:14px}
+label{display:block;font-size:13px;color:var(--dim);margin:12px 0 6px}
+input,select{width:100%;background:#120d14;border:1px solid var(--edge);border-radius:10px;padding:10px 12px}
+.status{margin-top:12px;font-size:14px;color:var(--dim)}
+.status b{color:var(--live)}
+.devs{list-style:none;padding:0;margin:8px 0}
+.devs li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid rgba(232,196,160,.12)}
+.devs li span{flex:1}
+.devs li button{background:none;border:1px solid var(--edge);border-radius:8px;padding:4px 10px;color:var(--dim)}
+.row{display:flex;gap:8px}.row input{flex:1}
+[hidden]{display:none!important}
+.note{font-size:12px;color:var(--dim);margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bomba Live</h1>
+  <button class="chip" id="codeBtn" aria-label="Wall code">Code: <span id="code"></span></button>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tWatch" aria-selected="true">Watch</button>
+    <button role="tab" id="tShare" aria-selected="false">Share</button>
+  </div>
+</header>
+
+<section id="watch">
+  <div class="grid" id="grid"></div>
+  <div class="waiting" id="waiting" hidden></div>
+  <div class="bar">
+    <button class="btn" id="editDevs">Devices</button>
+  </div>
+  <div class="panel" id="devPanel" hidden>
+    <h2>Devices on the wall</h2>
+    <ul class="devs" id="devList"></ul>
+    <div class="row"><input id="newDev" placeholder="Add a device name" maxlength="30"><button class="btn" id="addDev">Add</button></div>
+  </div>
+</section>
+
+<section id="share" hidden>
+  <div class="panel">
+    <h2>Share this screen</h2>
+    <p id="shareHelp">Pick which device this is, then start sharing. Every screen on the wall uses the same code.</p>
+    <label for="myName">This device</label>
+    <select id="myName"></select>
+    <div class="bar"><button class="btn main" id="startBtn">Start sharing</button><button class="btn stop" id="stopBtn" hidden>Stop sharing</button></div>
+    <div class="status" id="shareStatus" role="status"></div>
+    <div class="status" id="agentStat" role="status"></div>
+    <p class="note" id="cantShare" hidden>Phones and tablets can’t share from a web page. On Android, open the <b>Bomba app</b> → swipe up → <b>Live screens</b> → <b>Share</b>. iPhones and iPads can watch the wall here.</p>
+  </div>
+</section>
+
+<div class="panel" id="codePanel" hidden style="margin-top:12px">
+  <h2>Wall code</h2>
+  <p>Use the same code on every device. Keep it private — anyone with the code can watch.</p>
+  <div class="row"><input id="codeIn" maxlength="9" autocapitalize="characters" autocomplete="off"><button class="btn" id="codeSave">Use</button></div>
+  <div class="bar"><button class="btn" id="codeNew">New code</button><button class="btn" id="codeCopy">Copy code</button><button class="btn" id="linkCopy" hidden>Copy invite link</button></div>
+  <p id="linkNote" hidden>Open the invite link on your other computers — it fills in this code for you.</p>
+</div>
+
+<div id="ctlBar" hidden>
+  <input id="ctlText" placeholder="Type, then Enter to send it to the controlled screen" autocomplete="off" autocapitalize="off">
+  <button class="btn" data-k="enter">Enter</button>
+  <button class="btn" data-k="esc">Esc</button>
+  <button class="btn" data-k="tab">Tab</button>
+  <button class="btn" data-k="backspace">⌫</button>
+  <button class="btn" data-k="up">↑</button>
+  <button class="btn" data-k="down">↓</button>
+  <button class="btn" data-k="left">←</button>
+  <button class="btn" data-k="right">→</button>
+  <span class="st" id="ctlStat"></span>
+</div>
+
+<script src="../peerjs.min.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const ICE={iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
+const ABC="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const newCode=()=>{let s="";const r=crypto.getRandomValues(new Uint32Array(8));for(let i=0;i<8;i++)s+=ABC[r[i]%ABC.length];return s.slice(0,4)+"-"+s.slice(4)};
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+let code=store.get("bomba-live-code",null);
+const fromLink=/code=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})/.exec(location.hash+location.search);
+if(fromLink){const v=fromLink[1].toUpperCase().replace("-","");code=v.slice(0,4)+"-"+v.slice(4);store.set("bomba-live-code",code);try{history.replaceState(null,"",location.pathname)}catch(e){}}
+if(!code){code=newCode();store.set("bomba-live-code",code)}
+let devices=store.get("bomba-live-devices",["Home computer","Work computer","Phone","Tablet","Mac"]);
+const pid=name=>"bomba-"+code.toLowerCase().replace(/[^a-z0-9]/g,"")+"-"+slug(name);
+
+/* ---------- tabs + code ---------- */
+function tab(w){$("tWatch").setAttribute("aria-selected",w);$("tShare").setAttribute("aria-selected",!w);$("watch").hidden=!w;$("share").hidden=w;if(w)startWatch()}
+$("tWatch").onclick=()=>tab(true);$("tShare").onclick=()=>tab(false);
+function showCode(){$("code").textContent=code;$("codeIn").value=code}
+showCode();
+$("codeBtn").onclick=()=>{$("codePanel").hidden=!$("codePanel").hidden};
+$("codeSave").onclick=()=>{const v=$("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g,"");if(v.length<6)return;code=v.length===8?v.slice(0,4)+"-"+v.slice(4):v;store.set("bomba-live-code",code);showCode();$("codePanel").hidden=true;restartAll()};
+$("codeNew").onclick=()=>{code=newCode();store.set("bomba-live-code",code);showCode();restartAll()};
+$("codeCopy").onclick=()=>{try{navigator.clipboard.writeText(code)}catch(e){}};
+if(/^https?:/.test(location.protocol)){$("linkCopy").hidden=false;$("linkNote").hidden=false;
+  $("linkCopy").onclick=()=>{const u=location.origin+location.pathname+"#code="+code;try{navigator.clipboard.writeText(u)}catch(e){}$("linkCopy").textContent="Link copied";setTimeout(()=>$("linkCopy").textContent="Copy invite link",2000)}}
+
+/* ---------- watch ---------- */
+let viewer=null,dummy=null,tiles={},retry=null;
+function dummyStream(){if(dummy)return dummy;const c=document.createElement("canvas");c.width=c.height=2;c.getContext("2d").fillRect(0,0,2,2);dummy=c.captureStream(1);return dummy}
+function drawGrid(){const g=$("grid");g.innerHTML="";tiles={};
+  devices.forEach(n=>{const b=document.createElement("button");b.className="tile";b.setAttribute("aria-label",n+" screen");
+    b.innerHTML='<video playsinline muted autoplay poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><span class="fsx" aria-hidden="true">✕</span><span class="ctl" aria-hidden="true">🖱</span><div class="empty">Waiting for <br><span></span> to share</div><div class="cap"><i class="dot"></i><span class="nm"></span><span class="st">Offline</span></div>';
+    b.querySelector(".empty span").textContent=n;b.querySelector(".nm").textContent=n;
+    let hideT;const bar=()=>{b.classList.add("bar");clearTimeout(hideT);hideT=setTimeout(()=>b.classList.remove("bar"),2500)};
+    b.onclick=e=>{if(e.target.classList.contains("ctl")){e.stopPropagation();if(b.classList.contains("live"))ctlToggle(n,b);return}
+      if(!b.classList.contains("live"))return;
+      if(document.fullscreenElement===b){if(e.target.classList.contains("fsx")){document.exitFullscreen();return}
+        if(ctlState.name===n)return;b.classList.toggle("fit");bar();return}
+      b.classList.remove("fit");(b.requestFullscreen||b.webkitRequestFullscreen||function(){}).call(b);bar()};
+    ctlAttach(b,b.querySelector("video"),n);
+    g.appendChild(b);tiles[n]={el:b,call:null,video:b.querySelector("video")}});}
+function setLive(n,on){const t=tiles[n];if(!t)return;t.el.classList.toggle("live",on);t.el.querySelector(".st").textContent=on?"Live":"Offline";if(!on){t.video.srcObject=null;t.call=null}layoutWall()}
+function layoutWall(){const g=$("grid"),live=devices.filter(n=>tiles[n]&&tiles[n].el.classList.contains("live")),w=$("waiting");
+  if(!live.length){g.classList.remove("wall");w.hidden=true;return}
+  const land=innerWidth>=innerHeight,n=live.length;let cols,rows;
+  if(land){cols=Math.ceil(Math.sqrt(n));rows=Math.ceil(n/cols)}else{rows=Math.ceil(Math.sqrt(n));cols=Math.ceil(n/rows)}
+  g.style.setProperty("--cols",cols);g.style.setProperty("--rows",rows);g.classList.add("wall");
+  const off=devices.filter(d=>!live.includes(d));w.hidden=!off.length;w.textContent=off.length?"Waiting: "+off.join(" · "):"";}
+addEventListener("resize",()=>{if(tiles&&Object.keys(tiles).length)layoutWall()});
+function dial(n){const t=tiles[n];if(!viewer||!viewer.open||!t||t.call)return;
+  const c=viewer.call(pid(n),dummyStream());if(!c)return;t.call=c;
+  c.on("stream",s=>{t.video.srcObject=s;t.video.play().catch(()=>{});setLive(n,true);s.getVideoTracks().forEach(tr=>tr.onended=()=>setLive(n,false))});
+  c.on("close",()=>setLive(n,false));c.on("error",()=>setLive(n,false));
+  setTimeout(()=>{if(t.call===c&&!t.el.classList.contains("live")){try{c.close()}catch(e){}t.call=null}},9000);
+  const pcCheck=setInterval(()=>{const pc=c.peerConnection;if(t.call!==c){clearInterval(pcCheck);return}
+    if(pc&&["failed","closed","disconnected"].includes(pc.iceConnectionState)){clearInterval(pcCheck);try{c.close()}catch(e){}setLive(n,false)}},4000);}
+function startWatch(){if(viewer&&!viewer.destroyed)return;drawGrid();
+  viewer=new Peer(undefined,{config:ICE});
+  viewer.on("open",()=>devices.forEach(dial));
+  viewer.on("error",e=>{const m=/peer (\S+)/.exec(e.message||"");if(m){const n=devices.find(d=>pid(d)===m[1]);if(n&&tiles[n]){tiles[n].call=null}}});
+  viewer.on("disconnected",()=>{try{viewer.reconnect()}catch(e){}});
+  clearInterval(retry);retry=setInterval(()=>devices.forEach(dial),7000);
+  try{window.BombaNative&&BombaNative.setKeepAwake&&BombaNative.setKeepAwake(true)}catch(e){}
+  try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}}
+function stopWatch(){clearInterval(retry);if(viewer){try{viewer.destroy()}catch(e){}}viewer=null}
+function restartAll(){stopWatch();stopShare();if(!$("watch").hidden)startWatch();fillNames()}
+
+/* devices editor */
+function drawDevs(){const ul=$("devList");ul.innerHTML="";devices.forEach((n,i)=>{const li=document.createElement("li");li.innerHTML="<span></span><button>Remove</button>";li.querySelector("span").textContent=n;
+  li.querySelector("button").onclick=()=>{devices.splice(i,1);saveDevs()};ul.appendChild(li)})}
+function saveDevs(){store.set("bomba-live-devices",devices);drawDevs();fillNames();stopWatch();startWatch()}
+$("editDevs").onclick=()=>{$("devPanel").hidden=!$("devPanel").hidden;drawDevs()};
+$("addDev").onclick=()=>{const v=$("newDev").value.trim();if(!v||devices.some(d=>slug(d)===slug(v)))return;devices.push(v);$("newDev").value="";saveDevs()};
+
+/* ---------- share ---------- */
+const native=!!(window.BombaNative&&BombaNative.startScreenShare);
+const canWeb=!!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia);
+let sharer=null,stream=null,viewers=0;
+function fillNames(){const s=$("myName"),cur=store.get("bomba-live-me",null);s.innerHTML="";devices.forEach(n=>{const o=document.createElement("option");o.textContent=n;if(n===cur)o.selected=true;s.appendChild(o)})}
+fillNames();
+$("myName").onchange=()=>store.set("bomba-live-me",$("myName").value);
+if(!native&&!canWeb){$("cantShare").hidden=false;$("startBtn").disabled=true;$("shareHelp").hidden=true}
+function shareUI(on,msg){$("startBtn").hidden=on;$("stopBtn").hidden=!on;$("myName").disabled=on;$("shareStatus").innerHTML=msg||""}
+window.bombaShareStatus=function(s){/* from the Android app */
+  if(s.state==="live")shareUI(true,"<b>Sharing</b> as "+esc(s.name)+(s.viewers?" · "+s.viewers+" watching":""));
+  else if(s.state==="starting")shareUI(true,"Starting…");
+  else if(s.state==="error")shareUI(false,esc(s.message||"Couldn’t share"));
+  else shareUI(false,"");};
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+$("startBtn").onclick=async()=>{const name=$("myName").value;store.set("bomba-live-me",name);
+  if(native){shareUI(true,"Starting…");BombaNative.startScreenShare(code,name);return}
+  try{stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:20}},audio:false})}catch(e){shareUI(false,"Sharing was cancelled.");return}
+  stream.getVideoTracks()[0].onended=stopShare;
+  shareUI(true,"Connecting…");viewers=0;
+  sharer=new Peer(pid(name),{config:ICE});
+  sharer.on("open",()=>shareUI(true,"<b>Sharing</b> as "+esc(name)+" · keep this tab open"));
+  sharer.on("call",c=>{c.answer(stream);viewers++;upd();c.on("close",()=>{viewers=Math.max(0,viewers-1);upd()})});
+  sharer.on("connection",c=>{c.on("open",()=>ctlPing());c.on("data",d=>ctlForward(d))});
+  sharer.on("error",e=>{if(e.type==="unavailable-id")shareUI(true,"Another screen is already sharing as "+esc(name)+". Pick a different device name.");});
+  sharer.on("disconnected",()=>{try{sharer.reconnect()}catch(e){}});
+  function upd(){shareUI(true,"<b>Sharing</b> as "+esc(name)+(viewers?" · "+viewers+" watching":"")+" · keep this tab open")}};
+/* remote control, receiving side: commands from a controller on the wall are
+   handed to the control agent running on this computer (127.0.0.1:8765),
+   which turns them into real mouse and keyboard input. */
+let ctlMoveQ=null,ctlPostBusy=false;
+function ctlForward(d){if(!d||typeof d!=="object"||!d.t)return;
+  if(d.t==="move"){ctlMoveQ=d;if(!ctlPostBusy)ctlFlushMove();return}
+  ctlPost(d)}
+function ctlFlushMove(){if(!ctlMoveQ)return;const d=ctlMoveQ;ctlMoveQ=null;ctlPost(d)}
+function ctlPost(d){ctlPostBusy=true;
+  fetch("http://127.0.0.1:8765/cmd",{method:"POST",headers:{"Content-Type":"application/json","X-Bomba-Code":code},body:JSON.stringify(d)})
+  .catch(()=>{}).then(()=>{ctlPostBusy=false;if(ctlMoveQ)ctlFlushMove()})}
+function ctlPing(){fetch("http://127.0.0.1:8765/ping").then(r=>{if(r.ok)$("agentStat").textContent="Control agent connected — this screen can be controlled from the wall."}).catch(()=>{$("agentStat").textContent="Control agent not running on this computer — this screen is view-only."})}
+function stopShare(){if(native&&window.BombaNative){try{BombaNative.stopScreenShare()}catch(e){}}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}if(sharer){try{sharer.destroy()}catch(e){}sharer=null}shareUI(false,"")}
+$("stopBtn").onclick=stopShare;
+if(native){try{const s=JSON.parse(BombaNative.shareState()||"{}");if(s.state)bombaShareStatus(s)}catch(e){}}
+
+/* remote control, controller side: while a tile is fullscreen, tap the mouse
+   button on it and your touches drive that screen — tap clicks, drag moves
+   and holds, two-finger tap right-clicks, two-finger slide scrolls. */
+const ctlState={name:null,conn:null};
+function ctlSend(d){const c=ctlState.conn;if(c&&c.open)try{c.send(d)}catch(e){}}
+function ctlNote(s){const el=$("ctlStat");if(el)el.textContent=s}
+function mapPt(v,px,py){if(!v.videoWidth)return null;const r=v.getBoundingClientRect();
+  const s=getComputedStyle(v).objectFit==="cover"?Math.max(r.width/v.videoWidth,r.height/v.videoHeight):Math.min(r.width/v.videoWidth,r.height/v.videoHeight);
+  const dw=v.videoWidth*s,dh=v.videoHeight*s,ox=r.left+(r.width-dw)/2,oy=r.top+(r.height-dh)/2;
+  const x=(px-ox)/dw,y=(py-oy)/dh;return(x<0||x>1||y<0||y>1)?null:{x:x,y:y}}
+function ctlAttach(el,video,name){
+  const pts=new Map();let start=null,dragging=false,lastMove=0,two=null,wheelAcc=0;
+  el.addEventListener("pointerdown",e=>{if(ctlState.name!==name)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){start={x:e.clientX,y:e.clientY,t:Date.now()};dragging=false}
+    else if(pts.size===2){const p=[...pts.values()];two={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2,t:Date.now(),moved:0}}});
+  el.addEventListener("pointermove",e=>{if(ctlState.name!==name||!pts.has(e.pointerId))return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===2&&two){const p=[...pts.values()];const cy=(p[0].y+p[1].y)/2;const dy=cy-two.y;two.y=cy;two.moved+=Math.abs(dy);
+      wheelAcc+=dy;if(Math.abs(wheelAcc)>=36){ctlSend({t:"wheel",d:wheelAcc<0?1:-1});wheelAcc=0}}
+    else if(pts.size===1&&start){const dx=e.clientX-start.x,dy=e.clientY-start.y;
+      if(!dragging&&Math.hypot(dx,dy)>9){dragging=true;const p0=mapPt(video,start.x,start.y);if(p0)ctlSend({t:"down",b:0,x:p0.x,y:p0.y})}
+      if(dragging&&Date.now()-lastMove>40){lastMove=Date.now();const p=mapPt(video,e.clientX,e.clientY);if(p)ctlSend({t:"move",x:p.x,y:p.y})}}});
+  const up=e=>{if(ctlState.name!==name){pts.delete(e.pointerId);return}
+    if(pts.size===2&&two){if(Date.now()-two.t<300&&two.moved<12){const p=mapPt(video,two.x,two.y);if(p)ctlSend({t:"click",b:2,x:p.x,y:p.y})}two=null}
+    else if(pts.size===1&&start){const p=mapPt(video,e.clientX,e.clientY);
+      if(dragging){if(p)ctlSend({t:"move",x:p.x,y:p.y});ctlSend({t:"up",b:0})}
+      else if(Date.now()-start.t<500&&p)ctlSend({t:"click",b:0,x:p.x,y:p.y});
+      start=null;dragging=false}
+    pts.delete(e.pointerId)};
+  el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
+  el.addEventListener("wheel",e=>{if(ctlState.name!==name)return;e.preventDefault();ctlSend({t:"wheel",d:e.deltaY>0?1:-1})},{passive:false});
+}
+function ctlToggle(name,el){if(ctlState.name===name){ctlStop();return}
+  ctlStop();if(!viewer||!viewer.open){return}
+  const conn=viewer.connect(pid(name),{reliable:true,serialization:"json"});
+  ctlState.name=name;ctlState.conn=conn;el.classList.add("ctlOn");
+  conn.on("open",()=>{$("ctlBar").hidden=false;ctlNote("Controlling "+name+" — tap to click, drag to drag, two-finger tap right-clicks, two-finger slide scrolls")});
+  conn.on("data",d=>{if(d&&d.note)ctlNote(d.note)});
+  conn.on("close",()=>{if(ctlState.name===name)ctlStop()});}
+function ctlStop(){if(ctlState.conn)try{ctlState.conn.close()}catch(e){}
+  ctlState.name=null;ctlState.conn=null;$("ctlBar").hidden=true;
+  document.querySelectorAll(".tile.ctlOn").forEach(t=>t.classList.remove("ctlOn"))}
+document.addEventListener("fullscreenchange",()=>{if(!document.fullscreenElement)ctlStop()});
+$("ctlText").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();
+  if($("ctlText").value){ctlSend({t:"text",s:$("ctlText").value});$("ctlText").value=""}}});
+document.querySelectorAll("#ctlBar [data-k]").forEach(b=>b.onclick=()=>ctlSend({t:"key",k:b.getAttribute("data-k")}));
+
+startWatch();
+})();
+</script>
+</body>
+</html>
