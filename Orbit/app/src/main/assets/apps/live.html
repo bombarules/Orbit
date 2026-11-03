@@ -131,11 +131,12 @@ input,select{width:100%;background:#120d14;border:1px solid var(--edge);border-r
 </div>
 
 <script src="../peerjs.min.js"></script>
+<script src="../bomba-wall.js"></script>
 <script>
 (function(){
 const $=id=>document.getElementById(id);
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-const ICE={iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
+const ICE=window.BombaWall?BombaWall.ICE:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
 const ABC="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const newCode=()=>{let s="";const r=crypto.getRandomValues(new Uint32Array(8));for(let i=0;i<8;i++)s+=ABC[r[i]%ABC.length];return s.slice(0,4)+"-"+s.slice(4)};
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
@@ -161,8 +162,8 @@ if(/^https?:/.test(location.protocol)){$("linkCopy").hidden=false;$("linkNote").
 /* ---------- watch ---------- */
 let viewer=null,dummy=null,tiles={},retry=null;
 function dummyStream(){if(dummy)return dummy;const c=document.createElement("canvas");c.width=c.height=2;c.getContext("2d").fillRect(0,0,2,2);dummy=c.captureStream(1);return dummy}
-function drawGrid(){const g=$("grid");g.innerHTML="";tiles={};
-  devices.forEach(n=>{const b=document.createElement("button");b.className="tile";b.setAttribute("aria-label",n+" screen");
+function drawGrid(){$("grid").innerHTML="";tiles={};devices.forEach(makeTile)}
+function makeTile(n){const g=$("grid");{const b=document.createElement("button");b.className="tile";b.setAttribute("aria-label",n+" screen");
     b.innerHTML='<video playsinline muted autoplay poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video><span class="fsx" aria-hidden="true">✕</span><span class="ctl" aria-hidden="true">🖱</span><div class="empty">Waiting for <br><span></span> to share</div><div class="cap"><i class="dot"></i><span class="nm"></span><span class="st">Offline</span></div>';
     b.querySelector(".empty span").textContent=n;b.querySelector(".nm").textContent=n;
     let hideT;const bar=()=>{b.classList.add("bar");clearTimeout(hideT);hideT=setTimeout(()=>b.classList.remove("bar"),2500)};
@@ -172,7 +173,12 @@ function drawGrid(){const g=$("grid");g.innerHTML="";tiles={};
         if(ctlState.name===n)return;b.classList.toggle("fit");bar();return}
       b.classList.remove("fit");(b.requestFullscreen||b.webkitRequestFullscreen||function(){}).call(b);bar()};
     ctlAttach(b,b.querySelector("video"),n);
-    g.appendChild(b);tiles[n]={el:b,call:null,video:b.querySelector("video")}});}
+    g.appendChild(b);tiles[n]={el:b,call:null,video:b.querySelector("video")}}}
+/* bring the grid in line with the device list without dropping screens already playing */
+function syncTiles(){if(!viewer){return}
+  Object.keys(tiles).forEach(n=>{if(!devices.includes(n)){const t=tiles[n];try{t.call&&t.call.close()}catch(e){}t.el.remove();delete tiles[n]}});
+  devices.forEach(n=>{if(!tiles[n]){makeTile(n);dial(n)}});
+  devices.forEach(n=>$("grid").appendChild(tiles[n].el));layoutWall()}
 function setLive(n,on){const t=tiles[n];if(!t)return;t.el.classList.toggle("live",on);t.el.querySelector(".st").textContent=on?"Live":"Offline";if(!on){t.video.srcObject=null;t.call=null}layoutWall()}
 function layoutWall(){const g=$("grid"),live=devices.filter(n=>tiles[n]&&tiles[n].el.classList.contains("live")),w=$("waiting");
   if(!live.length){g.classList.remove("wall");w.hidden=true;return}
@@ -197,12 +203,15 @@ function startWatch(){if(viewer&&!viewer.destroyed)return;drawGrid();
   try{window.BombaNative&&BombaNative.setKeepAwake&&BombaNative.setKeepAwake(true)}catch(e){}
   try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}}
 function stopWatch(){clearInterval(retry);if(viewer){try{viewer.destroy()}catch(e){}}viewer=null}
-function restartAll(){stopWatch();stopShare();if(!$("watch").hidden)startWatch();fillNames()}
+function restartAll(){stopWatch();stopShare();wallSync();if(!$("watch").hidden)startWatch();fillNames()}
+/* shared device list: same names on every screen with this wall code */
+function wallSync(){if(!window.BombaWall)return;BombaWall.start(code,list=>{devices=list;
+  if(!$("devPanel").hidden)drawDevs();if(!$("myName").disabled)fillNames();syncTiles()});devices=BombaWall.list()}
 
 /* devices editor */
 function drawDevs(){const ul=$("devList");ul.innerHTML="";devices.forEach((n,i)=>{const li=document.createElement("li");li.innerHTML="<span></span><button>Remove</button>";li.querySelector("span").textContent=n;
   li.querySelector("button").onclick=()=>{devices.splice(i,1);saveDevs()};ul.appendChild(li)})}
-function saveDevs(){store.set("bomba-live-devices",devices);drawDevs();fillNames();stopWatch();startWatch()}
+function saveDevs(){store.set("bomba-live-devices",devices);if(window.BombaWall)BombaWall.setList(devices);drawDevs();fillNames();if(viewer)syncTiles();else startWatch()}
 $("editDevs").onclick=()=>{$("devPanel").hidden=!$("devPanel").hidden;drawDevs()};
 $("addDev").onclick=()=>{const v=$("newDev").value.trim();if(!v||devices.some(d=>slug(d)===slug(v)))return;devices.push(v);$("newDev").value="";saveDevs()};
 
@@ -297,6 +306,7 @@ $("ctlText").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault
   if($("ctlText").value){ctlSend({t:"text",s:$("ctlText").value});$("ctlText").value=""}}});
 document.querySelectorAll("#ctlBar [data-k]").forEach(b=>b.onclick=()=>ctlSend({t:"key",k:b.getAttribute("data-k")}));
 
+wallSync();
 startWatch();
 })();
 </script>

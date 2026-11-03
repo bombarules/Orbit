@@ -1,6 +1,6 @@
 # Orbit
 
-The soccer-ball home hub with Bomba Live built in: photo-real ball,
+The solar-system home hub with Bomba Live built in: apps orbiting the sun,
 app drawer, live screen sharing of every screen on your wall code,
 and full touch control of the shared screens (phone screens are
 controlled through the Orbit screen control accessibility service,

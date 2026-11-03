@@ -592,6 +592,12 @@ public class ShareService extends Service {
                 "stun:stun.l.google.com:19302").createIceServer());
         list.add(PeerConnection.IceServer.builder(
                 "stun:stun1.l.google.com:19302").createIceServer());
+        // TURN relay (same servers as bomba-wall.js): lets a phone on cell data
+        // reach a computer on Wi-Fi, or a screen on a different network.
+        for (String turn : new String[] {"turn:eu-0.turn.peerjs.com:3478", "turn:us-0.turn.peerjs.com:3478"}) {
+            list.add(PeerConnection.IceServer.builder(turn)
+                    .setUsername("peerjs").setPassword("peerjsp").createIceServer());
+        }
         return list;
     }
 
