@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Orbit</string>
+    <string name="accessibility_desc">Lets someone you share your screen with on Bomba Live tap, swipe and type on this phone. Only works while you are sharing, and only for devices on your wall code.</string>
+</resources>
