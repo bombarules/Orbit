@@ -7,6 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        # the Android project lives in this folder, not at the top of the repo
+        working-directory: Orbit-solar-system/Orbit
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -18,10 +22,10 @@ jobs:
           java-version: 17
 
       - name: Build debug APK
-        run: chmod +x gradlew && ./gradlew assembleDebug
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: orbit-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: Orbit-solar-system/Orbit/app/build/outputs/apk/debug/app-debug.apk
