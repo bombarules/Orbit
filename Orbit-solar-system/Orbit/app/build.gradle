@@ -8,7 +8,7 @@ android {
     buildToolsVersion '34.0.0'
 
     defaultConfig {
-        applicationId 'com.orbit.hub'
+        applicationId 'com.orbit.solar'
         minSdk 26
         targetSdk 34
         versionCode 2
