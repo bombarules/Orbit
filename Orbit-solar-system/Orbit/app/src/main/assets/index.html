@@ -29,6 +29,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:
 .label a{display:none;margin:8px auto 0;width:max-content;padding:9px 22px;border-radius:999px;background:rgba(232,196,160,.18);border:1px solid var(--accent);color:var(--ink);font-size:15px;text-decoration:none;pointer-events:auto}
 .label a.on{display:block}
 #lb-x{background:rgba(255,90,90,.16);border-color:#ff8a8a}
+.dall{margin-left:8px;padding:3px 12px;border-radius:12px;border:1px solid var(--edge);background:rgba(232,196,160,.12);color:var(--ink);font:400 13px "Outfit",sans-serif}
 .dhint{padding:4px 18px 8px;color:var(--accent);font:300 13px "Outfit",sans-serif;text-align:center}
 .label a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .label span{font-size:13px;color:var(--ink-dim);font-weight:300}
@@ -48,6 +49,7 @@ html,body{background:#000}
 .rrow .tx{flex:1;min-width:0}.rrow .t{display:block;font-size:15px}.rrow .d{font-size:12px;color:var(--ink-dim);font-weight:300}
 .rrow .go{font-size:13px;color:var(--accent)}
 .rnone{color:var(--ink-dim);font-size:14px;font-weight:300;padding:10px 4px}
+.handle,.rbtn{display:none!important}
 .handle{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 4px);width:44px;height:5px;padding:0;border:0;border-radius:3px;background:rgba(232,196,160,.35);cursor:pointer}
 .drawer,.drawer *{box-sizing:border-box}
 .drawer{position:fixed;inset:0;z-index:20;background:rgba(20,15,22,.97);padding:calc(env(safe-area-inset-top,0px) + 18px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;animation:dup .25s ease-out}
@@ -120,7 +122,7 @@ html,body{background:#000}
 <button class="handle" id="dHandle" aria-label="All phone apps"></button>
 <div class="drawer" id="drawer" hidden role="dialog" aria-label="Phone apps">
  <div class="dtop"><input id="dSearch" type="search" placeholder="Search apps" autocomplete="off"><button id="dClose" aria-label="Close">✕</button></div>
- <div class="dhint" id="dHint" hidden>✦ Tap an app to add it as a star in your universe</div>
+ <div class="dhint" id="dHint" hidden>✦ Tap an app to add it as a star in your universe <button id="dAll" class="dall">Add all</button></div>
  <button class="dtoggle" id="dToggle" aria-expanded="false" aria-controls="dActs"><span>Settings &amp; live screens</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
  <div class="dacts" id="dActs" hidden>
   <button id="dWall"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 15l3-3 2 2 3-3"/><circle cx="9" cy="8" r="1.3"/></svg><span>Wallpaper</span></button>
@@ -143,7 +145,6 @@ html,body{background:#000}
 
 <script src="three.min.js"></script>
 <script src="peerjs.min.js"></script>
-<script src="bomba-wall.js"></script>
 <script>
 (function(){
 const APPS=[
@@ -317,7 +318,7 @@ APPS.forEach((a,i)=>{
 /* ===== app stars: hold the empty space to add any phone app as a star in your universe ===== */
 const SKEY="bomba-stars";
 let STARS=[];try{STARS=JSON.parse(localStorage.getItem(SKEY)||"[]")}catch(e){STARS=[]}
-const starGroup=new THREE.Group();sys.add(starGroup);
+const starGroup=new THREE.Group();S.add(starGroup);
 const starObjs={};let selStar=null,starRemove=false;
 function saveStars(){try{localStorage.setItem(SKEY,JSON.stringify(STARS))}catch(e){}}
 /* the app's own colour, read from its icon (YouTube comes out red, WhatsApp green, and so on) */
@@ -368,13 +369,13 @@ function selectStar(pkg,removing){select(-1);selStar=pkg;starRemove=!!removing;c
   lk.onclick=e=>{e.preventDefault();if(window.BombaNative)BombaNative.launch(pkg);};
   const lx=document.getElementById("lb-x");lx.classList.toggle("on",!!removing);lx.onclick=e=>{e.preventDefault();removeStar(pkg);};
   label.classList.add("on");}
-let starSpin=0;
-function updateStars(dt,t){if(!reduce)starSpin+=dt*.02;Object.values(starObjs).forEach(o=>{const s=o.st,sel=selStar===s.pkg;
-  /* spread every star evenly over the whole screen: a tall shell around the planets sized to the view */
-  const N=STARS.length,k=STARS.indexOf(s),yy=.94-1.88*(k+.5)/Math.max(N,1),rr=Math.sqrt(1-yy*yy),th=k*2.39996+starSpin;
-  const halfH=dist*Math.tan(THREE.MathUtils.degToRad(22.5)),halfW=halfH*cam.aspect;
-  const RX=Math.min(Math.max(halfW*.95,3.2),halfH*1.1),RY=halfH*1.02;
-  o.g.position.set(Math.cos(th)*Math.max(rr,.35)*RX,yy*RY*(yy<0?1.32:.86)-.25,Math.sin(th)*Math.max(rr,.35)*RX*.5);
+function updateStars(dt,t){Object.values(starObjs).forEach(o=>{const s=o.st,sel=selStar===s.pkg;
+  /* stars fill the whole screen: an even scatter above and below the band where the planets orbit */
+  const N=STARS.length,k=STARS.indexOf(s);
+  const halfH=dist*Math.tan(THREE.MathUtils.degToRad(22.5))*.98,halfW=halfH*cam.aspect,cy=sys.position.y;
+  const band=Math.min(1.9,halfH*.38),fx=((.5+k*.7548777)%1)*2-1,fv=((.5+k*.5698403)%1)*2-1;
+  const sx=fx+(reduce?0:Math.sin(t*.12+k)*.02);
+  o.g.position.set(sx*halfW*.84,cy+(fv>=0?1:-1)*(band+Math.abs(fv)*(halfH*(fv>=0?.8:1.14)-band))*1.05+(reduce?0:Math.sin(t*.35+k*1.7)*.05),((k*37)%7-3)*.22);
   const tw=reduce?1:1+Math.sin(t*2.3+o.tw)*.08+Math.sin(t*5.1+o.tw*2)*.04,big=THREE.MathUtils.lerp(o.g.scale.x,sel?1.6:1,.12);
   o.g.scale.setScalar(big);o.flare.scale.setScalar(.8*tw);o.flare.material.rotation=reduce?0:t*.05+o.tw;
   const p=o.pg.attributes.position.array;o.seeds.forEach((q,k)=>{const a=q[1]+(reduce?0:t*q[3]);p[k*3]=Math.cos(a)*q[0];p[k*3+1]=Math.sin(a*1.3)*q[2]*q[0];p[k*3+2]=Math.sin(a)*q[0];});
@@ -521,7 +522,7 @@ window.bombaShareStatus=function(s){const b=document.getElementById("lvShare"),t
   document.getElementById("lvOpen").onclick=()=>{location.href="apps/live.html";};
   document.getElementById("lvMe").onchange=e=>{let v=e.target.value;
     if(v==="__add"){askField({placeholder:"Device name",label:"Device name"}).then(r=>{const n=(r||"").trim();
-      if(n&&!liveDevs.some(d=>slugL(d)===slugL(n))){liveDevs.push(n);LS.set("bomba-live-devices",liveDevs);if(window.BombaWall)BombaWall.setList(liveDevs)}
+      if(n&&!liveDevs.some(d=>slugL(d)===slugL(n))){liveDevs.push(n);LS.set("bomba-live-devices",liveDevs)}
       if(n)LS.set("bomba-live-me",n);liveUI();});return}
     LS.set("bomba-live-me",v);liveUI();};
   document.getElementById("lvShare").onclick=()=>{if(!window.BombaNative||!BombaNative.startScreenShare)return;
@@ -533,7 +534,7 @@ window.bombaShareStatus=function(s){const b=document.getElementById("lvShare"),t
 (function startLive(){
   if(!window.Peer||!liveCode)return;
   const c=document.createElement("canvas");c.width=c.height=2;c.getContext("2d").fillRect(0,0,2,2);liveDummy=c.captureStream(1);
-  livePeer=new Peer(undefined,{config:window.BombaWall?BombaWall.ICE:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
+  livePeer=new Peer(undefined,{config:{iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]}});
   const dial=n=>{if(!livePeer.open||liveCalls[n]||liveFaces[n])return;
     if(n===LS.get("bomba-live-me","Phone"))return;
     const call=livePeer.call(pidL(n),liveDummy);if(!call)return;liveCalls[n]=call;
@@ -546,9 +547,6 @@ window.bombaShareStatus=function(s){const b=document.getElementById("lvShare"),t
   livePeer.on("error",e=>{const m=/peer (\S+)/.exec(e.message||"");if(m){const n=liveDevs.find(d=>pidL(d)===m[1]);if(n)liveCalls[n]=null}});
   livePeer.on("disconnected",()=>{try{livePeer.reconnect()}catch(e){}});
   setInterval(()=>{if(!document.hidden)liveDevs.forEach(dial)},7000);
-  /* shared device list: names added on any screen with this wall code show up here */
-  if(window.BombaWall){BombaWall.start(liveCode,l=>{const gone=liveDevs.filter(d=>!l.includes(d));liveDevs=l;
-    gone.forEach(n=>{try{liveCalls[n]&&liveCalls[n].close()}catch(e){}liveDrop(n)});liveUI();l.forEach(dial)});liveDevs=BombaWall.list();liveUI()}
 })();
 
 /* view control: dragging turns and tilts the solar system */
@@ -564,7 +562,8 @@ let sY=0,holdT=null,held=false;cv.addEventListener("pointerdown",e=>{goFull();sY
   clearTimeout(holdT);const hx=e.clientX,hy=e.clientY;holdT=setTimeout(()=>{if(moved<12){held=true;holdAt(hx,hy);}},550);});
 cv.addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;moved+=Math.abs(dx)+Math.abs(dy);
   vy=dx*.006;vp=dy*.003;yaw+=vy;pitch=THREE.MathUtils.clamp(pitch+vp,-.2,1.3);drag={x:e.clientX,y:e.clientY};hideHint();});
-cv.addEventListener("pointerup",e=>{clearTimeout(holdT);if(held){drag=null;held=false;return;}if(sY>innerHeight*.65&&sY-e.clientY>80){drag=null;openDrawer();return;}if(moved<8)pick(e.clientX,e.clientY);drag=null;});
+cv.addEventListener("pointerup",e=>{clearTimeout(holdT);if(held){drag=null;held=false;return;}if(sY>innerHeight*.65&&sY-e.clientY>80){drag=null;openDrawer();return;}
+  if(sY<innerHeight*.3&&e.clientY-sY>110){drag=null;select(-1);drawRecents();recents.hidden=false;return;}if(moved<8)pick(e.clientX,e.clientY);drag=null;});
 cv.addEventListener("pointercancel",()=>{clearTimeout(holdT);drag=null;});
 /* hold: on empty space opens your apps to add a star; on a star offers to remove it */
 function holdAt(x,y){m2.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);rc.setFromCamera(m2,cam);const hit=rc.intersectObjects(pickables)[0];
@@ -618,6 +617,7 @@ document.getElementById("rclose").onclick=()=>{recents.hidden=true;document.getE
 const drawer=document.getElementById("drawer"),dGrid=document.getElementById("dGrid"),dSearch=document.getElementById("dSearch");
 let phoneApps=null;
 window.bombaApps=function(list){phoneApps=list;drawApps();};
+document.addEventListener("click",e=>{if(e.target&&e.target.id==="dAll"&&phoneApps){phoneApps.forEach(a=>{if(!STARS.some(x=>x.pkg===a.pkg)){const st={pkg:a.pkg,label:a.label,icon:a.icon,ang:0,el:0,rad:3};STARS.push(st);buildStar(st);}});saveStars();closeDrawer();}});
 function drawApps(){if(!phoneApps)return;const q=dSearch.value.trim().toLowerCase();dGrid.innerHTML="";
   const list=phoneApps.filter(a=>!q||a.label.toLowerCase().includes(q));
   if(!list.length){dGrid.innerHTML='<div class="dnone">No apps found</div>';return;}
